@@ -5,12 +5,9 @@
 #include <chrono>
 #include <string>
 
-#include "winsock2.h"
-
-
 int main(int argc, char* argv[])
 {
-    net::Init();
+    net::ScopeInit init;
 
     std::string host;
     std::string path = "/";
@@ -18,7 +15,7 @@ int main(int argc, char* argv[])
     if (argc < 2)
     {
         std::cout << "Usage: " << argv[0] << " <hostname>" << std::endl;
-        goto exit;
+        return 0;
     }
 
     net::InAddr addr;
@@ -43,7 +40,7 @@ int main(int argc, char* argv[])
         if (!sock.Connect(addr))
         {
             std::cerr << "Socket error: " << sock.GetError() << std::endl;
-            goto exit;
+            return 0;
         }
 
         std::string data = "GET ";
@@ -90,9 +87,6 @@ int main(int argc, char* argv[])
     {
         std::cerr << "Could not resolve host: " << host << std::endl;
     }
-
-exit:
-    net::Close();
 
     return 0;
 }

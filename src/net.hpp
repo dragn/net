@@ -267,4 +267,17 @@ extern bool Init();
 */
 extern void Close();
 
+class ScopeInit
+{
+public:
+    ScopeInit()
+    {
+        net::Init();
+    }
+    ~ScopeInit()
+    {
+        net::Close();
+    }
+};
+
 } // namespace net
