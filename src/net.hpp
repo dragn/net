@@ -257,4 +257,14 @@ std::ostream& operator<<(std::ostream& os, const InAddr& addr);
 std::wostream& operator<<(std::wostream& os, const IP4Addr& addr);
 std::wostream& operator<<(std::wostream& os, const InAddr& addr);
 
+/*
+    Global platform-specific networking initialization
+*/
+extern bool Init();
+
+/*
+    Global platform-specific networking deinitialization
+*/
+extern void Close();
+
 } // namespace net

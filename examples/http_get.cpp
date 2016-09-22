@@ -3,13 +3,22 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <string>
+
+#include "winsock2.h"
+
 
 int main(int argc, char* argv[])
 {
+    net::Init();
+
+    std::string host;
+    std::string path = "/";
+
     if (argc < 2)
     {
         std::cout << "Usage: " << argv[0] << " <hostname>" << std::endl;
-        return 0;
+        goto exit;
     }
 
     net::InAddr addr;
@@ -17,9 +26,6 @@ int main(int argc, char* argv[])
 
     size_t slashPos = 0;
     while (argv[1][slashPos] != '/' && argv[1][slashPos] != '\0') slashPos++;
-
-    std::string host;
-    std::string path = "/";
     if (argv[1][slashPos] == '/')
     {
         host = std::string(argv[1], slashPos);
@@ -37,7 +43,7 @@ int main(int argc, char* argv[])
         if (!sock.Connect(addr))
         {
             std::cerr << "Socket error: " << sock.GetError() << std::endl;
-            return 0;
+            goto exit;
         }
 
         std::string data = "GET ";
@@ -84,6 +90,9 @@ int main(int argc, char* argv[])
     {
         std::cerr << "Could not resolve host: " << host << std::endl;
     }
+
+exit:
+    net::Close();
 
     return 0;
 }

@@ -654,4 +654,56 @@ bool GetAddrByName(const char* name, IP4Addr& outAddr)
     return success;
 }
 
+#if CMAKE_PLATFORM_WINDOWS
+
+#define WINSOCK_VERSION_LO 2
+#define WINSOCK_VERSION_HI 2
+
+bool Init()
+{
+    WORD Version;
+    int Error;
+    WSADATA WSAData;
+
+    /*---- Initialise WinSock ----*/
+    Version = MAKEWORD(WINSOCK_VERSION_LO, WINSOCK_VERSION_HI);
+    Error = WSAStartup(Version, &WSAData);
+    if (Error == 0)
+    {
+        /*---- Check correct Version of Winsock is supported ----*/
+        if ((LOBYTE(WSAData.wVersion) == WINSOCK_VERSION_LO) && (HIBYTE(WSAData.wVersion) == WINSOCK_VERSION_HI))
+        {
+            /*---- WinSock Initialised Successfully ----*/
+            return true;
+        }
+
+        /*---- Wrong Version of WinSock, so Clean Up ----*/
+        WSACleanup();
+    }
+
+    return false;
+}
+
+void Close()
+{
+    WSACleanup();
+}
+
+#endif // CMAKE_PLATFORM_WINDOWS
+
+#if CMAKE_PLATFORM_UNIX
+
+bool Init()
+{
+    // nothing to do on Unix systems
+    return true;
+}
+
+void Close()
+{
+    // nothing to do on Unix systems
+}
+
+#endif // CMAKE_PLATFORM_LINUX
+
 } // namespace net
