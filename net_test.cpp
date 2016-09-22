@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-        host == std::string(argv[1]);
+        host = std::string(argv[1]);
     }
 
     if (net::GetAddrByName(host.c_str(), addr.ipAddr))
