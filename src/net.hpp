@@ -52,6 +52,16 @@ enum Type
 };
 }
 
+namespace eServerStreamSocketState
+{
+enum Type
+{
+    New,
+    Listening,
+    Closed
+};
+}
+
 /*
     Construct IP4Addr from string representation "X.X.X.X"
 */
@@ -168,6 +178,8 @@ private:
 */
 class ClientStreamSocket
 {
+    friend class ServerStreamSocket;
+
 public:
     ClientStreamSocket()
         : mState(eClientStreamSocketState::New)
@@ -244,6 +256,58 @@ private:
     const char* mError;
 
 }; // class ClientStreamSocket
+
+class ServerStreamSocket
+{
+public:
+    ServerStreamSocket() : mSocket(-1), mState(eServerStreamSocketState::New), mError(nullptr) {}
+
+    /*
+        Bind and listen for incoming connections on provided address
+        Valid in state New.
+
+        Returns true if socket successfully created and bound or false if error occurred.
+        Use GetError() to get error description.
+    */
+    bool Listen(const InAddr& addr);
+
+    /*
+        Accepts incoming connections. Returns true on successful accept.
+        Setups provided client socket to be used with new connection.
+        The call will block until there are incoming connections.
+
+        Returns false on error.
+        Use GetError() to get error description.
+    */
+    bool Accept(ClientStreamSocket& sock, InAddr& addr);
+
+    /*
+        Close underlying socket
+    */
+    bool Close();
+
+    /*
+        Get the current state of the socket
+    */
+    const eServerStreamSocketState::Type& GetState() const
+    {
+        return mState;
+    }
+
+    /*
+        Get the description of the last error
+    */
+    const char* GetError() const
+    {
+        return mError;
+    }
+
+private:
+    InAddr mAddr;
+    int mSocket;
+    eServerStreamSocketState::Type mState;
+    const char* mError;
+}; // class ServerStreamSocket
 
 /*
    std::ostream operators

@@ -546,6 +546,7 @@ bool ClientStreamSocket::Close()
         return true;
     }
 
+
     if (close(mSocket) != 0)
     {
         mError = GetStringForError(LAST_ERROR);
@@ -616,6 +617,102 @@ int ClientStreamSocket::Recv(char* outData, size_t dataSize)
     }
 
     return result;
+}
+
+bool ServerStreamSocket::Listen(const InAddr& addr)
+{
+    if (GetState() != eServerStreamSocketState::New)
+    {
+        mError = "Invalid state";
+        return false;
+    }
+
+    mSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+    if (mSocket == -1)
+    {
+        mError = GetStringForError(LAST_ERROR);
+        return false;
+    }
+
+    sockaddr_in to;
+    memset(&to, 0, sizeof(to));
+    to.sin_family = AF_INET;
+    memcpy(&to.sin_addr, &addr.ipAddr, sizeof(addr.ipAddr));
+    to.sin_port = htons(addr.ipPort);
+
+    int result = bind(mSocket, (sockaddr*)&to, sizeof(to));
+    if (result != 0)
+    {
+        mError = GetStringForError(LAST_ERROR);
+        return false;
+    }
+
+    if (listen(mSocket, 64) != 0)
+    {
+        mError = GetStringForError(LAST_ERROR);
+        return false;
+    }
+
+    mState = eServerStreamSocketState::Listening;
+    mError = "";
+    mAddr = addr;
+
+    return true;
+}
+
+bool ServerStreamSocket::Accept(ClientStreamSocket& sock, InAddr& addr)
+{
+    if (mState != eServerStreamSocketState::Listening)
+    {
+        mError = "Invalid state";
+        return false;
+    }
+
+    sockaddr_in sa;
+    memset(&sa, 0, sizeof(sa));
+    socklen_t len = sizeof(sa);
+
+    // set listening socket address
+    memcpy(&sa.sin_addr, &mAddr.ipAddr, sizeof(mAddr.ipAddr));
+    sa.sin_port = htons(mAddr.ipPort);
+
+    int sock_fd = accept(mSocket, (sockaddr*) &sa, &len);
+
+    if (sock_fd == -1)
+    {
+        mError = GetStringForError(LAST_ERROR);
+        return false;
+    }
+
+    sock.mState = eClientStreamSocketState::Connected;
+    sock.mSocket = sock_fd;
+    memcpy(&addr.ipAddr, &sa.sin_addr, sizeof(sa.sin_addr));
+    addr.ipPort = ntohs(sa.sin_port);
+
+    mError = "";
+
+    return true;
+}
+
+bool ServerStreamSocket::Close()
+{
+    if (mState != eServerStreamSocketState::Listening)
+    {
+        mError = "Invalid state";
+        return false;
+    }
+
+    if (close(mSocket) != 0)
+    {
+        mError = GetStringForError(LAST_ERROR);
+        return false;
+    }
+
+    mState = eServerStreamSocketState::Closed;
+    mError = "";
+
+    return true;
 }
 
 bool GetAddrByName(const char* name, IP4Addr& outAddr)

@@ -9,8 +9,10 @@ include(Utils)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -fext-numeric-literals")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --std=c++11 -fext-numeric-literals -pthread")
 endif()
+
+set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -pthread")
 
 add_library(Net src/net.hpp src/net.cpp)
 if(WIN32)
