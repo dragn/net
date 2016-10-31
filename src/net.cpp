@@ -663,6 +663,20 @@ bool ServerStreamSocket::Listen(const InAddr& addr)
 
 bool ServerStreamSocket::Accept(ClientStreamSocket& sock, InAddr& addr)
 {
+    int sock_fd;
+
+    if (Accept(sock_fd, addr))
+    {
+        sock.mState = eClientStreamSocketState::Connected;
+        sock.mSocket = sock_fd;
+        return true;
+    }
+
+    return false;
+}
+
+bool ServerStreamSocket::Accept(int& sock, InAddr& addr)
+{
     if (mState != eServerStreamSocketState::Listening)
     {
         mError = "Invalid state";
@@ -677,16 +691,14 @@ bool ServerStreamSocket::Accept(ClientStreamSocket& sock, InAddr& addr)
     memcpy(&sa.sin_addr, &mAddr.ipAddr, sizeof(mAddr.ipAddr));
     sa.sin_port = htons(mAddr.ipPort);
 
-    int sock_fd = accept(mSocket, (sockaddr*) &sa, &len);
+    sock = accept(mSocket, (sockaddr*) &sa, &len);
 
-    if (sock_fd == -1)
+    if (sock == -1)
     {
         mError = GetStringForError(LAST_ERROR);
         return false;
     }
 
-    sock.mState = eClientStreamSocketState::Connected;
-    sock.mSocket = sock_fd;
     memcpy(&addr.ipAddr, &sa.sin_addr, sizeof(sa.sin_addr));
     addr.ipPort = ntohs(sa.sin_port);
 

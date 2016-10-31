@@ -185,8 +185,17 @@ public:
         : mState(eClientStreamSocketState::New)
         , mError(nullptr)
         , mSocket(-1)
-    {
-    };
+    {}
+
+    /*
+        Construct from existing socket
+    */
+    ClientStreamSocket(int sock_fd)
+        : mState(eClientStreamSocketState::Connected)
+        , mError(nullptr)
+        , mSocket(sock_fd)
+    {}
+
     ~ClientStreamSocket();
 
     /*
@@ -235,6 +244,14 @@ public:
     int Recv(char* outData, size_t dataSize);
 
     /*
+        Get underlying socket number
+    */
+    int Get() const
+    {
+        return mSocket;
+    }
+
+    /*
         Get the current state of the socket
     */
     const eClientStreamSocketState::Type& GetState() const
@@ -280,6 +297,7 @@ public:
         Use GetError() to get error description.
     */
     bool Accept(ClientStreamSocket& sock, InAddr& addr);
+    bool Accept(int& sock, InAddr& addr);
 
     /*
         Close underlying socket
@@ -300,6 +318,14 @@ public:
     const char* GetError() const
     {
         return mError;
+    }
+
+    /*
+        Get underlying socket number
+    */
+    int Get() const
+    {
+        return mSocket;
     }
 
 private:
