@@ -16,6 +16,10 @@
 typedef ULONG nfds_t;
 #endif // CMAKE_PLATFORM_WINDOWS
 
+#ifdef CMAKE_PLATFORM_UNIX
+#include <poll.h>
+#endif // CMAKE_PLATFORM_UNIX
+
 const int MAX_CLIENTS = 10;
 
 bool doExit = false;
@@ -75,7 +79,7 @@ int main()
 
     pollfd fds[MAX_CLIENTS + 1];
     nfds_t nfds = 1;
-    
+
     fds[0].fd = sock.Get();
     fds[0].events = POLLIN;
 
@@ -127,11 +131,21 @@ int main()
                     buf[sz] = '\0';
                     std::cout << "> " << client.mAddr << " <: " << buf << std::endl;
                 }
+#ifdef CMAKE_PLATFORM_UNIX
+                else if (sz == 0)
+                {
+                    std::cout << "Close: " << clients[idx - 1].mAddr << std::endl;
+                    fds[idx].fd = -1;
+                    fds[idx].revents = 0;
+                    clients[idx - 1].mSock.Close();
+                }
+#endif // CMAKE_PLATFORM_UNIX
             }
             else if (fds[idx].revents & (POLLHUP | POLLERR))
             {
                 std::cout << "Close: " << clients[idx - 1].mAddr << std::endl;
                 fds[idx].fd = -1;
+                fds[idx].revents = 0;
                 clients[idx - 1].mSock.Close();
             }
         }

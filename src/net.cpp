@@ -699,11 +699,13 @@ bool ServerStreamSocket::Accept(int& sock, InAddr& addr)
         return false;
     }
 
+#ifdef CMAKE_PLATFORM_WINDOWS
     if (!SetSocketBlockingEnabled(sock, false))
     {
         mError = "Unable to set non-blocking mode";
         return false;
     }
+#endif // CMAKE_PLATFORM_WINDOWS
 
     memcpy(&addr.ipAddr, &sa.sin_addr, sizeof(sa.sin_addr));
     addr.ipPort = ntohs(sa.sin_port);

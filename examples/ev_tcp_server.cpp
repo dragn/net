@@ -25,8 +25,6 @@ public:
         {
             std::cout << sz << " bytes received" << std::endl;
             std::cout << addr << ": " << buf;
-
-            sock.Send("Haha", 4);
         }
         else
         {
