@@ -4,114 +4,46 @@
 #include <thread>
 #include <chrono>
 #include <string>
-#include <pthread.h>
 #include <list>
 #include <csignal>
 #include <cstring>
+#include <vector>
+
+#ifdef CMAKE_PLATFORM_WINDOWS
+#include <WinSock2.h>
+#define poll WSAPoll
+#define pollfd WSAPOLLFD
+typedef ULONG nfds_t;
+#endif // CMAKE_PLATFORM_WINDOWS
+
+const int MAX_CLIENTS = 10;
+
+bool doExit = false;
 
 class Client
 {
 public:
-    Client() : close(false) {}
+    Client(int fd, const net::InAddr& addr) : mSock(fd), mAddr(addr) {}
 
-    net::ClientStreamSocket sock;
-    net::InAddr addr;
-    pthread_t thread;
+    // move constructor
+    Client(Client&& client) : mSock(std::move(client.mSock)), mAddr(client.mAddr) {}
 
-    bool close;
-    char buf[256];
-
-    void Handle()
-    {
-        while (!close)
-        {
-            std::cout << "recv " << std::endl;
-            int rcv = sock.Recv(buf, 255);
-            std::cout << "rcv " << rcv << std::endl;
-            if (rcv > 0)
-            {
-                buf[rcv] = '\0';
-                std::cout << addr << ": " << buf << std::endl;
-                if (strcmp(buf, "bye") == 0)
-                {
-                    close = true;
-                }
-            }
-            else if (rcv < 0)
-            {
-                close = true;
-            }
-        }
-        std::cout << "Client closed " << addr << std::endl;
-    }
+    net::ClientStreamSocket mSock;
+    net::InAddr mAddr;
 };
 
-static std::list<Client*> clients;
-static pthread_mutex_t clients_mutex;
-static pthread_t client_sweep_thread;
-static bool doExit = false;
-
-static void* handle(void* arg)
-{
-    Client* client = reinterpret_cast<Client*>(arg);
-    client->Handle();
-    return NULL;
-}
-
-static void* client_sweep(void*)
-{
-    while (!doExit)
-    {
-        pthread_mutex_lock(&clients_mutex);
-
-        auto iter = clients.begin();
-        while (iter != clients.end())
-        {
-            if (pthread_tryjoin_np((*iter)->thread, NULL) == 0)
-            {
-                std::cout << "Client " << (*iter)->addr << " disconnected. Closing...\n";
-                delete *iter;
-                iter = clients.erase(iter);
-            }
-            else
-            {
-                ++iter;
-            }
-        }
-
-        pthread_mutex_unlock(&clients_mutex);
-    }
-}
-
 net::ServerStreamSocket sock;
+
+std::vector<Client> clients;
 
 void doQuit()
 {
     doExit = true;
 
-    pthread_join(client_sweep_thread, NULL);
-
-    // shutdown all clients
-    pthread_mutex_lock(&clients_mutex);
-
-    auto iter = clients.begin();
-    while (iter != clients.end())
+    for (Client& client : clients)
     {
-        (*iter)->sock.Close();
-        (*iter)->close = true;
-        if (pthread_join((*iter)->thread, NULL) == 0)
-        {
-            std::cout << "Client " << (*iter)->addr << " disconnected. Closing...\n";
-            delete *iter;
-            iter = clients.erase(iter);
-        }
-        else
-        {
-            ++iter;
-        }
+        client.mSock.Close();
     }
-
-    pthread_mutex_unlock(&clients_mutex);
 
     // close server socket
     sock.Close();
@@ -139,30 +71,69 @@ int main()
 
     std::cout << "Listening on " << addr << std::endl;
 
-    pthread_create(&client_sweep_thread, NULL, &client_sweep, NULL);
-
     signal(SIGINT, &handleSigInt);
 
-    bool exit = false;
+    pollfd fds[MAX_CLIENTS + 1];
+    nfds_t nfds = 1;
+    
+    fds[0].fd = sock.Get();
+    fds[0].events = POLLIN;
 
-    while (true)
+    char buf[256];
+
+    while (!doExit)
     {
-        Client* client = new Client;
-        if (!sock.Accept(client->sock, client->addr))
+        poll(fds, nfds, -1);
+
+        if (fds[0].revents & POLLIN)
         {
-            std::cerr << "Socket error: " << sock.GetError() << std::endl;
-            return 0;
+            int cltFd;
+            net::InAddr cltAddr;
+            if (sock.Accept(cltFd, cltAddr))
+            {
+                std::cout << "New connection: " << cltAddr << std::endl;
+
+                if (nfds == MAX_CLIENTS + 1)
+                {
+                    std::cout << "Client limit exceeded!" << std::endl;
+                    net::ClientStreamSocket css(cltFd);
+                    css.Close();
+                }
+                else
+                {
+                    clients.push_back(Client(cltFd, cltAddr));
+                    fds[nfds].fd = cltFd;
+                    fds[nfds].events = POLLIN;
+                    fds[nfds].revents = POLLIN;
+                    ++nfds;
+                }
+            }
         }
 
-        pthread_mutex_lock(&clients_mutex);
+        for (size_t idx = 1; idx < nfds; ++idx)
+        {
+            if (fds[idx].revents & POLLIN)
+            {
+                Client& client = clients[idx - 1];
+                net::ClientStreamSocket& sock = client.mSock;
 
-        clients.push_back(client);
-        std::cout << "Incoming connection from " << addr << std::endl;
-        pthread_create(&clients.back()->thread, NULL, &handle, clients.back());
-
-        pthread_mutex_unlock(&clients_mutex);
+                int sz = sock.Recv(buf, sizeof(buf) - 1);
+                if (sz < 0)
+                {
+                    std::cout << "Socket error: " << sock.GetError() << std::endl;
+                }
+                else if (sz > 0)
+                {
+                    buf[sz] = '\0';
+                    std::cout << "> " << client.mAddr << " <: " << buf << std::endl;
+                }
+            }
+            else if (fds[idx].revents & (POLLHUP | POLLERR))
+            {
+                std::cout << "Close: " << clients[idx - 1].mAddr << std::endl;
+                fds[idx].fd = -1;
+                clients[idx - 1].mSock.Close();
+            }
+        }
     }
-
-    doExit = true;
-    pthread_join(client_sweep_thread, NULL);
 }

@@ -196,6 +196,19 @@ public:
         , mSocket(sock_fd)
     {}
 
+    /*
+        Move constructor
+    */
+    ClientStreamSocket(ClientStreamSocket&& other)
+        : mState(other.mState)
+        , mError(nullptr)
+        , mSocket(other.mSocket)
+    {
+        // avoid socket close on destruction
+        other.mState = eClientStreamSocketState::Closed;
+        other.mSocket = -1;
+    }
+
     ~ClientStreamSocket();
 
     /*

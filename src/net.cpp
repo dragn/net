@@ -699,6 +699,12 @@ bool ServerStreamSocket::Accept(int& sock, InAddr& addr)
         return false;
     }
 
+    if (!SetSocketBlockingEnabled(sock, false))
+    {
+        mError = "Unable to set non-blocking mode";
+        return false;
+    }
+
     memcpy(&addr.ipAddr, &sa.sin_addr, sizeof(sa.sin_addr));
     addr.ipPort = ntohs(sa.sin_port);
 
