@@ -602,7 +602,15 @@ int ClientStreamSocket::Recv(char* outData, size_t dataSize)
     }
 
     int result = recv(mSocket, outData, dataSize, 0);
-    if (result < 0)
+    if (result == 0)
+    {
+        // for a TCP socket recv returns 0 when remote end closed the connection
+        // close the socket and update state
+        Close();
+
+        return 0;
+    }
+    else if (result < 0)
     {
 #if CMAKE_PLATFORM_WINDOWS
         if (LAST_ERROR == WSAEWOULDBLOCK) return 0;
@@ -699,13 +707,11 @@ bool ServerStreamSocket::Accept(int& sock, InAddr& addr)
         return false;
     }
 
-#ifdef CMAKE_PLATFORM_WINDOWS
     if (!SetSocketBlockingEnabled(sock, false))
     {
         mError = "Unable to set non-blocking mode";
         return false;
     }
-#endif // CMAKE_PLATFORM_WINDOWS
 
     memcpy(&addr.ipAddr, &sa.sin_addr, sizeof(sa.sin_addr));
     addr.ipPort = ntohs(sa.sin_port);

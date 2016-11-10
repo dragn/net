@@ -1,5 +1,6 @@
 #include "net.hpp"
 
+#include <algorithm>
 #include <iostream>
 #include <thread>
 #include <chrono>
@@ -20,7 +21,7 @@ typedef ULONG nfds_t;
 #include <poll.h>
 #endif // CMAKE_PLATFORM_UNIX
 
-const int MAX_CLIENTS = 10;
+const int MAX_CLIENTS = 3;
 
 bool doExit = false;
 
@@ -29,16 +30,34 @@ class Client
 public:
     Client(int fd, const net::InAddr& addr) : mSock(fd), mAddr(addr) {}
 
-    // move constructor
     Client(Client&& client) : mSock(std::move(client.mSock)), mAddr(client.mAddr) {}
 
     net::ClientStreamSocket mSock;
     net::InAddr mAddr;
+
+    size_t pollIdx;
 };
 
 net::ServerStreamSocket sock;
+std::list<Client> clients;
 
-std::vector<Client> clients;
+template<typename Iterator>
+void UpdateFds(Iterator clientsBegin, Iterator clientsEnd, pollfd* fds, nfds_t& nfds)
+{
+    Iterator client = clientsBegin;
+    nfds = 1;
+    while (client != clientsEnd)
+    {
+        fds[nfds].fd = client->mSock.Get();
+        fds[nfds].events = POLLIN;
+        fds[nfds].revents = 0;
+
+        client->pollIdx = nfds;
+
+        nfds++;
+        client++;
+    }
+}
 
 void doQuit()
 {
@@ -106,21 +125,16 @@ int main()
                 else
                 {
                     clients.push_back(Client(cltFd, cltAddr));
-                    fds[nfds].fd = cltFd;
-                    fds[nfds].events = POLLIN;
-                    fds[nfds].revents = POLLIN;
-                    ++nfds;
                 }
             }
         }
 
-        for (size_t idx = 1; idx < nfds; ++idx)
+        for (auto client = clients.begin(); client != clients.end(); ++client)
         {
-            if (fds[idx].revents & POLLIN)
+            net::ClientStreamSocket& sock = client->mSock;
+            const pollfd& pfd = fds[client->pollIdx];
+            if (pfd.revents & POLLIN)
             {
-                Client& client = clients[idx - 1];
-                net::ClientStreamSocket& sock = client.mSock;
-
                 int sz = sock.Recv(buf, sizeof(buf) - 1);
                 if (sz < 0)
                 {
@@ -129,25 +143,16 @@ int main()
                 else if (sz > 0)
                 {
                     buf[sz] = '\0';
-                    std::cout << "> " << client.mAddr << " <: " << buf << std::endl;
+                    std::cout << "> " << client->mAddr << " <: " << buf;
                 }
-#ifdef CMAKE_PLATFORM_UNIX
-                else if (sz == 0)
-                {
-                    std::cout << "Close: " << clients[idx - 1].mAddr << std::endl;
-                    fds[idx].fd = -1;
-                    fds[idx].revents = 0;
-                    clients[idx - 1].mSock.Close();
-                }
-#endif // CMAKE_PLATFORM_UNIX
             }
-            else if (fds[idx].revents & (POLLHUP | POLLERR))
+            if (sock.IsClosed())
             {
-                std::cout << "Close: " << clients[idx - 1].mAddr << std::endl;
-                fds[idx].fd = -1;
-                fds[idx].revents = 0;
-                clients[idx - 1].mSock.Close();
+                std::cout << "Close: " << client->mAddr << std::endl;
+                client = clients.erase(client);
             }
         }
+
+        UpdateFds(clients.begin(), clients.end(), fds, nfds);
     }
 }

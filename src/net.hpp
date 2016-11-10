@@ -252,6 +252,7 @@ public:
         dataSize: the size of the buffer; the function is guaranteed not to overwrite the buffer
 
         Returns the number of bytes received or negative number when error occurred.
+        May return 0 when recv led to connection being closed or operation would block (check the state).
         Use GetError() to get error description.
     */
     int Recv(char* outData, size_t dataSize);
@@ -270,6 +271,14 @@ public:
     const eClientStreamSocketState::Type& GetState() const
     {
         return mState;
+    }
+
+    /*
+        Check for closed state
+    */
+    bool IsClosed() const
+    {
+        return mState == eClientStreamSocketState::Closed;
     }
 
     /*
