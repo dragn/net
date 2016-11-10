@@ -662,6 +662,12 @@ bool ServerStreamSocket::Listen(const InAddr& addr)
         return false;
     }
 
+    if (!SetSocketBlockingEnabled(mSocket, false))
+    {
+        mError = "Unable to set non-blocking mode";
+        return false;
+    }
+
     mState = eServerStreamSocketState::Listening;
     mError = "";
     mAddr = addr;

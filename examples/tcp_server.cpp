@@ -112,7 +112,7 @@ int main()
         {
             int cltFd;
             net::InAddr cltAddr;
-            if (sock.Accept(cltFd, cltAddr))
+            while (sock.Accept(cltFd, cltAddr))
             {
                 std::cout << "New connection: " << cltAddr << std::endl;
 
@@ -127,9 +127,12 @@ int main()
                     clients.push_back(Client(cltFd, cltAddr));
                 }
             }
+            UpdateFds(clients.begin(), clients.end(), fds, nfds);
         }
 
-        for (auto client = clients.begin(); client != clients.end(); ++client)
+        bool needUpdate = false;
+
+        for (auto client = clients.begin(); client != clients.end();)
         {
             net::ClientStreamSocket& sock = client->mSock;
             const pollfd& pfd = fds[client->pollIdx];
@@ -146,10 +149,19 @@ int main()
                     std::cout << "> " << client->mAddr << " <: " << buf;
                 }
             }
+            if (pfd.revents & (POLLHUP | POLLERR))
+            {
+                sock.Close();
+            }
             if (sock.IsClosed())
             {
                 std::cout << "Close: " << client->mAddr << std::endl;
                 client = clients.erase(client);
+                needUpdate = true;
+            }
+            else
+            {
+                client++;
             }
         }
 
