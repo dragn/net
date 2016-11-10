@@ -96,8 +96,8 @@ class DatagramSocket
 public:
     DatagramSocket()
         : mState(eDatagramSocketState::New)
-        , mError(nullptr)
         , mSocket(-1)
+        , mError(nullptr)
     {
     }
     ~DatagramSocket();
@@ -183,8 +183,8 @@ class ClientStreamSocket
 public:
     ClientStreamSocket()
         : mState(eClientStreamSocketState::New)
-        , mError(nullptr)
         , mSocket(-1)
+        , mError(nullptr)
     {}
 
     /*
@@ -192,8 +192,8 @@ public:
     */
     ClientStreamSocket(int sock_fd)
         : mState(eClientStreamSocketState::Connected)
-        , mError(nullptr)
         , mSocket(sock_fd)
+        , mError(nullptr)
     {}
 
     /*
@@ -201,8 +201,8 @@ public:
     */
     ClientStreamSocket(ClientStreamSocket&& other)
         : mState(other.mState)
-        , mError(nullptr)
         , mSocket(other.mSocket)
+        , mError(nullptr)
     {
         // avoid socket close on destruction
         other.mState = eClientStreamSocketState::Closed;
@@ -290,7 +290,11 @@ private:
 class ServerStreamSocket
 {
 public:
-    ServerStreamSocket() : mSocket(-1), mState(eServerStreamSocketState::New), mError(nullptr) {}
+    ServerStreamSocket()
+        : mState(eServerStreamSocketState::New)
+        , mSocket(-1)
+        , mError(nullptr)
+    {}
 
     /*
         Bind and listen for incoming connections on provided address
